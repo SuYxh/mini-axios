@@ -5,6 +5,7 @@ function createInstance() {
   const context = new Axios();
   // 2.获取request方法，并且绑定this
   const instance = Axios.prototype.request.bind(context);
+  
   return instance;
 }
 

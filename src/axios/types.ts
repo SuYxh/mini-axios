@@ -26,3 +26,6 @@ export interface AxiosResponse<T = any> {
   request: XMLHttpRequest;
 }
 
+export interface AxiosInstance {
+  <T = any>(config: AxiosRequestConfig): Promise<AxiosResponse<T>>; 
+}
