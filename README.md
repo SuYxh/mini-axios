@@ -609,3 +609,146 @@ class Axios {
 }
 ```
 
+
+
+## 请求终止
+
+### cancelToken 的使用
+
+```typescript
+const CancelToken = axios.CancelToken;
+const source = CancelToken.source(); // 创建取消token
+
+const requestConfig: AxiosRequestConfig = {
+  method: "post",
+  url: baseURL + "/post",
+  data: person,
+  cancelToken: source.token, // 请求时携带token
+};
+
+axios(requestConfig)
+  .then((response: AxiosResponse<Person>) => {
+    console.log(response.data);
+    return response.data;
+  })
+  .catch((error: any) => {
+    if (axios.isCancel(error)) {
+      return console.log("取消:" + error);
+    }
+    console.log(error);
+  });
+
+source.cancel("用户取消请求");
+```
+
+
+
+### 取消实现原理
+
+CancelToken.ts
+
+```typescript
+// 此方法是用于判断是不是取消的字符串
+export function isCancel(message: any): message is Cancel {
+  return message instanceof Cancel;
+}
+
+class Cancel {
+  constructor(public message: string) {}
+}
+
+
+export class CancelTokenStatic {
+  public resolve: any;
+
+  source() {
+    return {
+      //  token就是一个promise
+      token: new Promise<Cancel>((resolve, reject) => {
+        this.resolve = resolve;
+      }),
+      
+      // 让这个promise成功，并且传入中断的原因
+      cancel: (message: string) => {
+        this.resolve(new Cancel(message));
+      },
+    };
+  }
+}
+
+```
+
+
+
+Axios.ts
+
+```typescript
+dispatchRequest<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return new Promise<AxiosResponse<T>>((resolve, reject) => {
+      let { url, method, params, data, headers, timeout } = config;
+			
+      // ...
+
+      request.onerror = function () {
+        reject("net::ERR_INTERNET_DISCONNECTED");
+      };
+
+      if (config.cancelToken) {
+        config.cancelToken.then((reason) => {
+          // 取消请求
+          request.abort();
+
+          // 将取消的原因传递给 reject 函数
+          reject(reason);
+        });
+      }
+
+      request.send(requestBody);
+    });
+  }
+```
+
+
+
+index.ts
+
+```typescript
+// ...
+
+const axios = createInstance();
+
+// 将 CancelToken 和 isCancel 添加到 axios 实例上
+axios.CancelToken = new CancelTokenStatic();
+axios.isCancel = isCancel;
+
+export default axios;
+
+// 导出所有类型
+export * from "./types";
+```
+
+
+
+### 声明所需类型
+
+types.ts
+
+```typescript
+export type CancelToken = ReturnType<CancelTokenStatic["source"]>["token"];
+
+export interface AxiosRequestConfig {
+  // ...
+  cancelToken?: CancelToken;
+}
+
+export interface AxiosInstance {
+  <T = any>(config: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+  interceptors: {
+    request: AxiosInterceptorManager<InternalAxiosRequestConfig>;
+    response: AxiosInterceptorManager<AxiosResponse>;
+  };
+  CancelToken: CancelTokenStatic; // 取消token
+  isCancel: typeof isCancel; // 请求是否是被取消
+}
+```
+

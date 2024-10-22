@@ -1,4 +1,5 @@
 import AxiosInterceptorManager from "./AxiosInterceptorManager";
+import { CancelTokenStatic, isCancel } from "./CancelToken";
 
 export type Methods =
   | "get"
@@ -10,6 +11,8 @@ export type Methods =
   | "delete"
   | "DELETE";
 
+export type CancelToken = ReturnType<CancelTokenStatic['source']>['token']
+
 // 请求配置
 export interface AxiosRequestConfig {
   url?: string;
@@ -18,6 +21,8 @@ export interface AxiosRequestConfig {
   data?: any;
   headers?: Record<string, any>;
   timeout?: number;
+  cancelToken?: CancelToken;
+
 }
 
 // 响应的类型
@@ -41,4 +46,7 @@ export interface AxiosInstance {
     request: AxiosInterceptorManager<InternalAxiosRequestConfig>;
     response: AxiosInterceptorManager<AxiosResponse>;
   };
+
+  CancelToken: CancelTokenStatic;
+  isCancel: typeof isCancel;
 }

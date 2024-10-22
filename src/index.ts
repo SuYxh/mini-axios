@@ -2,4 +2,5 @@
 // import "./example/base-post";
 // import "./example/timeout";
 // import "./example/error";
-import './example/interceptors'
+// import './example/interceptors'
+import "./example/cancel";

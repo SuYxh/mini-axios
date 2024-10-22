@@ -1,4 +1,5 @@
 import Axios from "./Axios";
+import { CancelTokenStatic, isCancel } from "./CancelToken";
 import { AxiosInstance } from './types'
 
 function createInstance() {
@@ -12,8 +13,12 @@ function createInstance() {
   return instance as AxiosInstance;
 }
 
-// 我们真实调用的就是axios.request方法
+// 我们真实调用的就是axios.request方法 
 const axios = createInstance();
+
+// 将 CancelToken 和 isCancel 添加到 axios 实例上
+axios.CancelToken = new CancelTokenStatic();
+axios.isCancel = isCancel;
 
 export default axios;
 

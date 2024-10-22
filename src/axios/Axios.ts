@@ -121,6 +121,16 @@ class Axios {
         reject("net::ERR_INTERNET_DISCONNECTED");
       };
 
+      if (config.cancelToken) {
+        config.cancelToken.then((reason) => {
+          // 取消请求
+          request.abort();
+
+          // 将取消的原因传递给 reject 函数
+          reject(reason);
+        });
+      }
+
       request.send(requestBody);
     });
   }
