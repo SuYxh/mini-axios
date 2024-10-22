@@ -374,3 +374,238 @@ request.onreadystatechange = function () {
   }
 };
 ```
+
+
+
+## 拦截器
+
+```typescript
+const requestConfig: AxiosRequestConfig = {
+  url: baseURL + "/post",
+  method: "post",
+  data: person,
+  headers: {
+    "Content-Type": "application/json",
+    name: "", // 用来交给拦截器来做处理
+  },
+};
+```
+
+### 拦截器执行顺序
+
+请求拦截器是倒序执行的，先放入的拦截器最后执行
+
+```typescript
+// 请求拦截器
+const request = axios.interceptors.request.use(
+  (config) => {
+    config.headers.name += "a";
+    return config;
+  },
+  (err) => Promise.reject(err)
+);
+
+axios.interceptors.request.use((config) => {
+  config.headers.name += "b";
+  return config;
+});
+
+axios.interceptors.request.use((config) => {
+  config.headers.name += "c";
+  return config;
+});
+
+axios.interceptors.request.eject(request); // 放入的可以抛出来
+```
+
+
+
+响应拦截器是正序执行的，先放入的拦截器先执行
+
+```typescript
+// 响应拦截器
+const response = axios.interceptors.response.use((response) => {
+  response.data.name += "a";
+  return response;
+});
+
+axios.interceptors.response.use((response) => {
+  response.data.name += "b";
+  return response;
+});
+
+axios.interceptors.response.use((response) => {
+  response.data.name += "c";
+  return response;
+});
+
+axios.interceptors.response.eject(response);
+```
+
+> 具体的可以参考代码 src/example/interceptors.ts
+
+
+
+### 拦截器 promise 写法
+
+```typescript
+axios.interceptors.request.use((config) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      config.headers!.name += "c";
+      resolve(config);
+    }, 1000);
+  });
+  return Promise.reject("失败了");
+});
+```
+
+
+
+### 拦截器类型定义
+
+```typescript
+// 强制将headers属性进行重写，变为非可选
+export interface InternalAxiosRequestConfig extends AxiosRequestConfig {
+  headers: Record<string, any>;
+}
+
+export interface AxiosInstance {
+  <T = any>(config: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+  
+  interceptors: {
+    request: AxiosInterceptorManager<InternalAxiosRequestConfig>;
+    response: AxiosInterceptorManager<AxiosResponse>;
+  };
+}
+
+```
+
+
+
+### AxiosInterceptorManager 实现
+
+```typescript
+type OnFufilled<V> = (value: V) => V | Promise<V>;
+type OnRejected = (error: any) => any;
+
+export interface Interceptor<V> {
+  onFulfilled?: OnFufilled<V>;
+  onRejected?: OnRejected;
+}
+
+class AxiosInterceptorManager<V> {
+  public interceptors: Array<Interceptor<V> | null> = [];
+
+  use(onFulfilled?: OnFufilled<V>, onRejected?: OnRejected): number {
+    this.interceptors.push({
+      onFulfilled,
+      onRejected,
+    });
+
+    return this.interceptors.length - 1;
+  }
+  eject(id: number) {
+    if (this.interceptors[id]) {
+      this.interceptors[id] = null;
+    }
+  }
+}
+
+export default AxiosInterceptorManager;
+```
+
+
+
+### 拦截器执行原理
+
+给Axios的实例增加 intercetpors, 并不是request方法
+
+```typescript
+class Axios {
+  public interceptors = {
+    request: new AxiosInterceptorManager<InternalAxiosRequestConfig>(),
+    response: new AxiosInterceptorManager<AxiosResponse>(),
+  };
+}
+```
+
+
+
+将实例属性合并到request中
+
+```typescript
+function createInstance() {
+  // 1.创建axios实例
+  const context = new Axios();
+  // 2.获取request方法，并且绑定this
+  let instance = Axios.prototype.request.bind(context);
+  // 3.将实例属性合并到request中
+  instance = Object.assign(instance, context);
+
+  return instance as AxiosInstance;
+}
+```
+
+
+
+构建执行链
+
+```typescript
+class Axios {
+  public interceptors = {
+    request: new AxiosInterceptorManager<InternalAxiosRequestConfig>(),
+    response: new AxiosInterceptorManager<AxiosResponse>(),
+  };
+
+  request<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    // 1、对配置进行合并
+    // 2、拦截器
+
+    // chain 的数组，用于存储拦截器和最终的请求处理函数。
+    // 这个数组的初始元素是一个对象，包含了 onFulfilled 方法指向 this.dispatchRequest（即发送真正的网络请求的函数），onRejected 为 undefined（因为在这里没有定义请求失败的处理逻辑）。
+    const chain: (Interceptor<InternalAxiosRequestConfig> | Interceptor<AxiosResponse>)[] = [{ onFulfilled: this.dispatchRequest, onRejected: undefined }];
+
+    // 遍历所有注册的请求拦截器，并使用 unshift 方法将它们添加到 chain 数组的前面。这样做的目的是确保请求拦截器在请求发送前按照注册的逆序执行（后注册的先执行）。
+
+    this.interceptors.request.interceptors.forEach((interceptor) => {
+      interceptor && chain.unshift(interceptor);
+    });
+
+    // 遍历所有注册的响应拦截器，并使用 push 方法将它们添加到 chain 数组的后面。这样做的目的是确保响应拦截器在请求发送后按照注册的顺序执行（先注册的先执行）。
+    this.interceptors.response.interceptors.forEach((interceptor) => {
+      interceptor && chain.push(interceptor);
+    });
+
+    // 初始化一个 Promise 对象 promise，其初始值为请求配置对象 config。这个 Promise 对象用于逐个执行 chain 数组中的拦截器和请求处理函数。
+    let promise: Promise<AxiosRequestConfig | AxiosResponse> =
+      Promise.resolve(config); // 我们构建一个每次执行后返回的promise
+
+    // 构建 Promise 链，通过promise链将所有的拦截器放在一起，类似于 Promise.resolve(config).then.then.then
+    while (chain.length) {
+      // (v:AxiosRequestConfig) => AxiosRequestConfig
+      // (v:AxiosResponse) => AxiosResponse
+
+      // AxiosRequestConfig -> AxiosResponse
+      // AxiosResponse -> AxiosRequestConfig
+      const { onFulfilled, onRejected } = chain.shift()!;
+
+      promise = promise.then(
+        // 这个取出来的可能是请求拦截器, 也可能是响应拦截器
+        onFulfilled as (v: AxiosRequestConfig | AxiosResponse) => any,
+        onRejected
+      );
+    }
+    return promise as Promise<AxiosResponse<T>>;
+
+    // 3、发送请求
+    // return this.dispatchRequest(config);
+  }
+
+  dispatchRequest<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+			// ... 
+    });
+  }
+}
+```
+

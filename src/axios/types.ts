@@ -1,3 +1,4 @@
+import AxiosInterceptorManager from "./AxiosInterceptorManager";
 
 export type Methods =
   | "get"
@@ -29,6 +30,15 @@ export interface AxiosResponse<T = any> {
   request: XMLHttpRequest;
 }
 
+export interface InternalAxiosRequestConfig extends AxiosRequestConfig {
+  headers: Record<string, any>;
+}
+
 export interface AxiosInstance {
   <T = any>(config: AxiosRequestConfig): Promise<AxiosResponse<T>>; 
+
+  interceptors: {
+    request: AxiosInterceptorManager<InternalAxiosRequestConfig>;
+    response: AxiosInterceptorManager<AxiosResponse>;
+  };
 }
