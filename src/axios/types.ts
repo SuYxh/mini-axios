@@ -23,6 +23,7 @@ export interface AxiosRequestConfig {
   timeout?: number;
   cancelToken?: CancelToken;
 
+  [propName: string]: any
 }
 
 // 响应的类型
@@ -42,6 +43,7 @@ export interface InternalAxiosRequestConfig extends AxiosRequestConfig {
 export interface AxiosInstance {
   <T = any>(config: AxiosRequestConfig): Promise<AxiosResponse<T>>; 
 
+  <T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>; 
   interceptors: {
     request: AxiosInterceptorManager<InternalAxiosRequestConfig>;
     response: AxiosInterceptorManager<AxiosResponse>;

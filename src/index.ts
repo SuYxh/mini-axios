@@ -3,4 +3,5 @@
 // import "./example/timeout";
 // import "./example/error";
 // import './example/interceptors'
-import "./example/cancel";
+// import "./example/cancel";
+import "./example/mergeConfig";

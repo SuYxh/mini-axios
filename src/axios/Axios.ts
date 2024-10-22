@@ -4,22 +4,44 @@ import {
   AxiosRequestConfig,
   AxiosResponse,
   InternalAxiosRequestConfig,
+  Methods
 } from "./types";
 import AxiosInterceptorManager, {
   Interceptor,
 } from "./AxiosInterceptorManager";
+import mergeConfig from "./mergeConfig";
 
 class Axios {
+  public defaults: AxiosRequestConfig = {
+    method: 'get',
+    timeout: 0,
+    headers: {
+      common: {
+        accept: "application/json",
+      },
+    },
+  }
   public interceptors = {
     request: new AxiosInterceptorManager<InternalAxiosRequestConfig>(),
     response: new AxiosInterceptorManager<AxiosResponse>(),
   };
 
-  request<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  request<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     // 1、对配置进行合并
+    if (typeof url === 'string') {
+      if (!config) {
+        config = {}
+      }
+      config.url = url
+    } else {
+      config = url
+    }
+
+    config = mergeConfig(this.defaults, config)
+
+    config.method = config.method!.toLowerCase() as Methods
+
     // 2、拦截器
-
-
     // chain 的数组，用于存储拦截器和最终的请求处理函数。
     // 这个数组的初始元素是一个对象，包含了 onFulfilled 方法指向 this.dispatchRequest（即发送真正的网络请求的函数），onRejected 为 undefined（因为在这里没有定义请求失败的处理逻辑）。
     const chain: (Interceptor<InternalAxiosRequestConfig> | Interceptor<AxiosResponse>)[] = [{ onFulfilled: this.dispatchRequest, onRejected: undefined }];
@@ -78,10 +100,17 @@ class Axios {
 
       if (headers) {
         for (let key in headers) {
-          request.setRequestHeader(key, headers[key]);
+          // 如果是common或是方法 就将对象合并
+          if (key === "common" || key === config.method) {
+            for (let key2 in headers[key]) {
+              request.setRequestHeader(key2, headers[key][key2]);
+            }
+          } else {
+            request.setRequestHeader(key, headers[key]);
+          }
         }
       }
-
+      
       // 设置为 "json" 会使得 response 直接是一个 JavaScript 对象，而不需要手动解析 JSON 字符串
       request.responseType = "json";
       request.onreadystatechange = function () {
