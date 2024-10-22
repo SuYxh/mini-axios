@@ -16,6 +16,7 @@ export interface AxiosRequestConfig {
   params?: any;
   data?: any;
   headers?: Record<string, any>;
+  timeout?: number;
 }
 
 // 响应的类型

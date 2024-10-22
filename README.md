@@ -294,3 +294,83 @@ dispatchRequest<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
 }
 ```
 
+
+
+## 错误处理
+
+### 网络异常错误
+
+```typescript
+request.onerror = function () {
+  reject("net::ERR_INTERNET_DISCONNECTED");
+};
+```
+
+> 可以通过`onerror`监控网络产生的异常。
+
+### 超时处理
+
+```typescript
+export interface AxiosRequestConfig {
+  // ...
+  timeout?: number; // 增加超时时间
+}
+```
+
+**请求参数**
+
+```typescript
+const requestConfig: AxiosRequestConfig = {
+  method: "post",
+  url: baseURL + "/post_timeout?timeout=3000", // 3s后返回结果
+  data: person,
+  headers: {
+    "content-type": "application/json",
+  },
+  timeout: 1000, // 1s后就超时
+};
+```
+
+**设置超时时间**
+
+```typescript
+// axios/Axios.ts
+
+if (timeout) {
+  request.timeout = timeout;
+  request.ontimeout = function () {
+    reject(`Error: timeout of ${timeout}ms exceeded`);
+  };
+}
+```
+
+### 状态码错误
+
+
+
+**请求参数**
+
+```typescript
+const requestConfig: AxiosRequestConfig = {
+  method: "post",
+  url: baseURL + "/post_status?code=401", // 3s后返回结果
+  data: person,
+  headers: {
+    "content-type": "application/json",
+  },
+};
+```
+
+**设置错误信息**
+
+```typescript
+request.onreadystatechange = function () {
+  if (request.readyState === 4 && request.status !== 0) {
+    if (request.status >= 200 && request.status < 300) {
+      // ...
+    } else {
+      reject(`Error: Request faild with status code ${request.status}`);
+    }
+  }
+};
+```

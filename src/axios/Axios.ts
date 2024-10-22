@@ -12,7 +12,7 @@ class Axios {
 
   dispatchRequest<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return new Promise<AxiosResponse<T>>((resolve, reject) => {
-      let { url, method, params, data, headers } = config
+      let { url, method, params, data, headers, timeout } = config
 
       // 创建xhr对象
       const request = new XMLHttpRequest()
@@ -48,6 +48,8 @@ class Axios {
               request
             }
             resolve(response)
+          } else {
+            reject(`Error: Request faild with status code ${request.status}`);
           }
         }
       }
@@ -57,6 +59,17 @@ class Axios {
       if (data) {
         requestBody = JSON.stringify(data)
       }
+
+      if (timeout) {
+        request.timeout = timeout;
+        request.ontimeout = function () {
+          reject(`Error: timeout of ${timeout}ms exceeded`);
+        };
+      }
+
+      request.onerror = function () {
+        reject("net::ERR_INTERNET_DISCONNECTED");
+      };
 
       request.send(requestBody)
     });
