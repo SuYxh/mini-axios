@@ -1,1 +1,2 @@
-import "./example/base";
+// import "./example/base-get";
+import "./example/base-post";

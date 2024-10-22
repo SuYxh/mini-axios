@@ -1,10 +1,11 @@
 import Axios from "./Axios";
+import { AxiosInstance } from './types'
 
 function createInstance() {
   // 1.创建axios实例
   const context = new Axios();
   // 2.获取request方法，并且绑定this
-  const instance = Axios.prototype.request.bind(context);
+  const instance: AxiosInstance = Axios.prototype.request.bind(context);
   
   return instance;
 }

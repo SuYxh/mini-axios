@@ -14,6 +14,8 @@ export interface AxiosRequestConfig {
   url?: string;
   method?: Methods;
   params?: any;
+  data?: any;
+  headers?: Record<string, any>;
 }
 
 // 响应的类型

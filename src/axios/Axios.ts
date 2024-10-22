@@ -12,7 +12,7 @@ class Axios {
 
   dispatchRequest<T>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return new Promise<AxiosResponse<T>>((resolve, reject) => {
-      let { url, method, params } = config
+      let { url, method, params, data, headers } = config
 
       // 创建xhr对象
       const request = new XMLHttpRequest()
@@ -26,7 +26,11 @@ class Axios {
 
       request.open(method!, url!, true);
 
-      request.setRequestHeader('Content-Type', 'application/json');
+      if (headers) {
+        for (let key in headers) {
+          request.setRequestHeader(key, headers[key]);
+        }
+      }
 
       // 设置为 "json" 会使得 response 直接是一个 JavaScript 对象，而不需要手动解析 JSON 字符串
       request.responseType = "json";
@@ -48,7 +52,13 @@ class Axios {
         }
       }
 
-      request.send()
+      let requestBody: null | string = null 
+
+      if (data) {
+        requestBody = JSON.stringify(data)
+      }
+
+      request.send(requestBody)
     });
   }
 }
